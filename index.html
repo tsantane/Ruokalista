@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Ruokalista</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <style>
+    :root {
+      --bg:#0b0f14; --card:#121825; --muted:#9bb0c6; --text:#e7f0ff;
+      --line:rgba(255,255,255,.10); --btn:rgba(125,211,252,.14);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+      background:
+        radial-gradient(900px 600px at 20% 0%, rgba(125,211,252,.12), transparent 60%),
+        radial-gradient(900px 600px at 80% 20%, rgba(167,139,250,.10), transparent 60%),
+        var(--bg);
+      color:var(--text);
+    }
+    header{
+      padding:16px 16px 10px;
+      position:sticky; top:0; backdrop-filter:blur(10px);
+      background:rgba(11,15,20,.75); border-bottom:1px solid var(--line); z-index:5;
+    }
+    h1{font-size:18px;margin:0 0 10px}
+    .controls{max-width:980px;margin:0 auto;display:grid;gap:10px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    label.muted{color:var(--muted);font-size:13px}
+    select,input,textarea{
+      background:rgba(18,24,37,.92); color:var(--text);
+      border:1px solid var(--line); border-radius:12px;
+      padding:10px 12px; font-size:14px; outline:none;
+    }
+    input{min-width:200px}
+    textarea{width:100%; min-height:180px; resize:vertical; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace; font-size:12px; line-height:1.35}
+    .container{max-width:980px;margin:14px auto 40px;padding:0 16px;display:grid;grid-template-columns:360px 1fr;gap:14px}
+    @media (max-width:900px){.container{grid-template-columns:1fr} select,input{min-width:0;flex:1}}
+    .card{background:rgba(18,24,37,.92);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .muted{color:var(--muted);font-size:13px}
+    .title{font-size:18px;margin:0 0 6px;line-height:1.25}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.03);font-size:12px;color:var(--muted);margin-right:6px;margin-bottom:6px}
+    .section-title{margin:14px 0 8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    ul{margin:8px 0 0 18px} li{margin:6px 0}
+    pre{white-space:pre-wrap;background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:12px;padding:12px;overflow:auto;color:var(--text);font-size:13px;line-height:1.35}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .action{background:rgba(125,211,252,.12);border:1px solid rgba(125,211,252,.25);color:var(--text);border-radius:12px;padding:10px 12px;cursor:pointer;font-weight:700;font-size:13px}
+    .action.secondary{background:rgba(255,255,255,.04);border:1px solid var(--line);font-weight:600}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:500px){.grid2{grid-template-columns:1fr}}
+    .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(18,24,37,.95);border:1px solid var(--line);border-radius:999px;padding:10px 14px;font-weight:600;color:var(--text);display:none;z-index:999}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .tab{padding:8px 10px;border-radius:999px;border:1px solid var(--line);cursor:pointer;background:rgba(255,255,255,.03);font-weight:700;font-size:13px}
+    .tab.active{background:var(--btn);border-color:rgba(125,211,252,.35)}
+    .small{font-size:12px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="controls">
+    <h1>Ruokalista</h1>
+    <div class="row">
+      <label class="muted">Viikko</label>
+      <select id="weekSelect"></select>
+
+      <label class="muted">Näkymä</label>
+      <select id="viewSelect">
+        <option value="meal">Päivä & ateria</option>
+        <option value="weekplan">Vahvistettu ruokalista (koko viikko)</option>
+        <option value="shopping">Ostoslista</option>
+      </select>
+
+      <label class="muted">Hae</label>
+      <input id="search" placeholder="esim. lohikeitto, tortilla..." />
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tabView">Näkymä</div>
+      <div class="tab" id="tabEdit">Muokkaa</div>
+      <div class="tab" id="tabData">Data (kopioi/liitä)</div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+  <div class="card" id="navCard">
+    <div id="panelView">
+      <div class="section-title">Valinnat</div>
+      <div class="grid2">
+        <div>
+          <label class="muted">Päivä</label><br/>
+          <select id="daySelect"></select>
+        </div>
+        <div>
+          <label class="muted">Ateria</label><br/>
+          <select id="mealSelect"></select>
+        </div>
+      </div>
+
+      <div class="section-title">Pikakomennot</div>
+      <div class="actions">
+        <button class="action secondary" id="copyMealBtn">Kopioi ateria</button>
+        <button class="action secondary" id="copyRecipeBtn">Kopioi resepti</button>
+        <button class="action secondary" id="copyWeekPlanBtn">Kopioi viikon ruokalista</button>
+        <button class="action secondary" id="copyShoppingBtnTop">Kopioi ostoslista</button>
+      </div>
+
+      <div class="section-title">Vinkki</div>
+      <div class="muted">“Vahvistettu ruokalista” löytyy alasvetovalikosta (Näkymä).</div>
+    </div>
+
+    <div id="panelEdit" style="display:none">
+      <div class="section-title">Muokkaa tätä ateriaa</div>
+      <div class="muted small">Vaihda ruoan nimi ja (halutessa) liitä resepti.</div>
+      <div class="section-title">Ruoan nimi</div>
+      <input id="editDish" placeholder="esim. Lohikeitto + ruisleipä" style="width:100%"/>
+      <div class="section-title">Resepti</div>
+      <select id="editRecipe"></select>
+      <div class="actions">
+        <button class="action" id="saveMealBtn">Tallenna</button>
+        <button class="action secondary" id="clearRecipeBtn">Poista reseptilinkki</button>
+      </div>
+
+      <div class="section-title">Lisää uusi viikko</div>
+      <div class="muted small">Esim. “Vko 4”. Luodaan tyhjä viikko, jonka täytät ateria kerrallaan.</div>
+      <input id="newWeekName" placeholder="Vko 4" style="width:100%"/>
+      <div class="actions">
+        <button class="action secondary" id="addWeekBtn">Lisää viikko</button>
+        <button class="action secondary" id="deleteWeekBtn">Poista nykyinen viikko</button>
+      </div>
+
+      <div class="section-title">Muokkaa ostoslistaa (tälle viikolle)</div>
+      <textarea id="editShopping"></textarea>
+      <div class="actions">
+        <button class="action" id="saveShoppingBtn">Tallenna ostoslista</button>
+      </div>
+
+      <div class="section-title">Lisää uusi resepti</div>
+      <div class="muted small">Täytä ja paina “Tallenna resepti”. Resepti tulee valikkoon.</div>
+      <input id="newRecipeId" placeholder="id esim. lohikeitto_uusi" style="width:100%"/>
+      <input id="newRecipeTitle" placeholder="Otsikko esim. Lohikeitto" style="width:100%; margin-top:8px"/>
+      <input id="newRecipeServings" placeholder="Annokset esim. 4–6" style="width:100%; margin-top:8px"/>
+      <input id="newRecipeTime" placeholder="Aika esim. 35 min" style="width:100%; margin-top:8px"/>
+      <div class="section-title">Ainekset (yksi per rivi)</div>
+      <textarea id="newRecipeIngredients"></textarea>
+      <div class="section-title">Vaiheet (yksi per rivi)</div>
+      <textarea id="newRecipeSteps"></textarea>
+      <div class="actions">
+        <button class="action" id="saveRecipeBtn">Tallenna resepti</button>
+      </div>
+    </div>
+
+    <div id="panelData" style="display:none">
+      <div class="section-title">Data (JSON)</div>
+      <div class="muted small">Voit kopioida koko data-JSONin, muokata sitä ja liittää takaisin. Tämä on se “copy-paste-meininki”.</div>
+      <div class="actions">
+        <button class="action secondary" id="exportBtn">Vie JSON</button>
+        <button class="action" id="importBtn">Tuo JSON</button>
+        <button class="action secondary" id="resetBtn">Palauta oletukset</button>
+      </div>
+      <textarea id="dataArea" placeholder="Paina “Vie JSON” tai liitä tähän ja paina “Tuo JSON”…"></textarea>
+      <div class="muted small">Vinkki: tee aina ensin “Vie JSON” varmuuskopioksi.</div>
+    </div>
+  </div>
+
+  <div class="card" id="contentCard">
+    <div class="pill" id="pillWeek"></div>
+    <div class="pill" id="pillDay"></div>
+    <div class="pill" id="pillMeal"></div>
+
+    <h2 class="title" id="dishTitle">—</h2>
+    <div class="muted" id="dishHint"></div>
+
+    <div id="contentArea"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Kopioitu</div>
+
+<script>
+const DEFAULT_DATA = {"weeks": {"Vko 1": {"Ma": {"Aamiainen": "Kaurapuuro + banaani", "Lounas": "Tonnikala-pastasalaatti + ruisleipä", "Päivällinen": "Uunikana + uunijuurekset + riisi", "Iltapala": "Jogurtti + omena"}, "Ti": {"Aamiainen": "Ruisleipä + juusto + kananmuna + kurkku", "Lounas": "Uunikanan tähteet", "Päivällinen": "Spagetti bolognese + salaatti", "Iltapala": "Hedelmä + ruisleipä"}, "Ke": {"Aamiainen": "Kaurapuuro + marjat", "Lounas": "Bolognesen tähteet", "Päivällinen": "Linssi-kookoscurry + riisi", "Iltapala": "Jogurtti + banaani"}, "To": {"Aamiainen": "Jogurtti + kaurahiutale + banaani", "Lounas": "Curryn tähteet", "Päivällinen": "Lohikeitto + ruisleipä", "Iltapala": "Ruisleipä + juusto"}, "Pe": {"Aamiainen": "Munakas + ruisleipä", "Lounas": "Lohikeiton tähteet", "Päivällinen": "Tortillat (kana + pavut + vihannekset)", "Iltapala": "Jogurtti / hedelmä"}, "La": {"Aamiainen": "Pannukakku + hillo", "Lounas": "Tortillatähteet (kulho/wrap)", "Päivällinen": "Hernekeitto", "Iltapala": "Ruisleipä + juusto"}, "Su": {"Aamiainen": "Smoothie (banaani+jogurtti) + ruisleipä", "Lounas": "Hernekeiton tähteet", "Päivällinen": "Lihapullat + perunamuusi + kasvikset", "Iltapala": "Jogurtti + marjat"}}, "Vko 2": {"Ma": {"Aamiainen": "Kaurapuuro + banaani", "Lounas": "Tonnikala-pastasalaatti", "Päivällinen": "Chili con carne + riisi", "Iltapala": "Jogurtti + omena"}, "Ti": {"Aamiainen": "Ruisleipä + juusto + kananmuna + kurkku", "Lounas": "Chilin tähteet", "Päivällinen": "Uuniseiti + perunamuusi + pakastevihannekset", "Iltapala": "Ruisleipä + hedelmä"}, "Ke": {"Aamiainen": "Kaurapuuro + omena", "Lounas": "Seiti+muusi tähteet", "Päivällinen": "Kermainen broileripasta", "Iltapala": "Jogurtti + banaani"}, "To": {"Aamiainen": "Jogurtti + kaurahiutale + banaani", "Lounas": "Broileripastan tähteet", "Päivällinen": "Linssi-tomaattikeitto + ruisleipä", "Iltapala": "Ruisleipä + hedelmä"}, "Pe": {"Aamiainen": "Munakas + ruisleipä", "Lounas": "Linssikeiton tähteet", "Päivällinen": "Tortillat (kana + pavut + vihannekset)", "Iltapala": "Jogurtti / hedelmä"}, "La": {"Aamiainen": "Pannukakku + hillo", "Lounas": "Tortilla-bowl (tähteet)", "Päivällinen": "Lihapullat + perunamuusi + porkkanaraaste", "Iltapala": "Ruisleipä + juusto"}, "Su": {"Aamiainen": "Smoothie (banaani+jogurtti) + ruisleipä", "Lounas": "Lihapullat/muusi tähteet", "Päivällinen": "Kasvislasagne (linssi+tomaatti+juusto)", "Iltapala": "Jogurtti + marjat"}}, "Vko 3": {"Ma": {"Aamiainen": "Kaurapuuro + banaani", "Lounas": "Kasvissosekeitto + ruisleipä", "Päivällinen": "Broileripelti (kana + uunijuurekset)", "Iltapala": "Jogurtti + omena"}, "Ti": {"Aamiainen": "Ruisleipä + juusto + kananmuna + kurkku", "Lounas": "Broileripellin tähteet", "Päivällinen": "Kalapuikot + perunamuusi + herneet", "Iltapala": "Ruisleipä + hedelmä"}, "Ke": {"Aamiainen": "Jogurtti + kaurahiutale + banaani", "Lounas": "Kalan tähteet", "Päivällinen": "Linssi-bolognese + spagetti", "Iltapala": "Jogurtti + banaani"}, "To": {"Aamiainen": "Munakas + ruisleipä", "Lounas": "Linssibolognesen tähteet", "Päivällinen": "Makkarakeitto + ruisleipä", "Iltapala": "Ruisleipä + hedelmä"}, "Pe": {"Aamiainen": "Kaurapuuro + omena", "Lounas": "Makkarakeiton tähteet", "Päivällinen": "Tacokulhot (jauheliha + pavut + riisi + vihannekset)", "Iltapala": "Jogurtti / hedelmä"}, "La": {"Aamiainen": "Pannukakku + hillo", "Lounas": "Tacotähteet (kulho/wrap)", "Päivällinen": "Pinaatti-salaattijuustopiirakka + salaatti", "Iltapala": "Ruisleipä + juusto"}, "Su": {"Aamiainen": "Smoothie (banaani+jogurtti) + ruisleipä", "Lounas": "Piirakan tähteet + salaatti", "Päivällinen": "Makaroonilaatikko + porkkanaraaste", "Iltapala": "Jogurtti + hedelmä"}}}, "shopping": {"Vko 1": "MAITO 1 l x10\nKAURAHIUTALE 1 kg x1\nJOGURTTI 1 kg x2\nMUNAT 10 kpl x3\nRUISLEIPÄ x3\nJUUSTO EDAM ~1 kg x1\nMARGARIINI 400 g x1\n\nPERUNA 2 kg x3\nPORKKANA 1 kg x2\nSIPULI 1 kg x1\nVALKOSIPULI x1\nPURJO x1\nKURKKU x2\nTOMAATTI x6\nKIRSIKKATOMAAATTI 250 g x1\nJÄÄVUORISALAATTI x1\nPAPRIKA x3\nTILLI x1\nSITRUUNA x1\nBANAANI ~2.5 kg\nOMENA 1 kg x2\nPAKASTEMARJAT 200–500 g x2\n\nKANA KOIPIREISI / REISI ~1.2–1.5 kg x1\nBROILERIN FILEESUIKALE 400 g x2\nJAUHELIHA 400 g x4\nLOHIKUUTIOT / PAKASTELOHI 300 g x2\nTONNIKALA VEDESSÄ x3 prk\n\nSPAGETTI 1 kg x1\nRIISI 1 kg x1\nTOMAATTIMURSKA 400 g x8\nTOMAATTIPYREE x1\nPUNAISET LINSSIT 400 g x1\nKOOKOSMAITO 400 ml x2\n\nTORTILLAT 8 kpl x2\nTACOKASTIKE / SALSA x1\nTACOMAUSTE x2\nKIDNEYPAVUT x2 prk\nRANSKANKERMA / CREME FRAICHE x1\n\nKALALIEMIKUUTIOT x1 pkt\nRUOKAKERMA 2 dl x2\nHERNEKEITTO 435 g x2\nVEHNÄJAUHO 2 kg x1\nHILLO x1\nKORPPUJAUHO x1 pkt", "Vko 2": "MAITO 1 l x10\nKAURAHIUTALE 1 kg x1\nJOGURTTI 1 kg x2\nMUNAT 10 kpl x2\nRUISLEIPÄ x3\nJUUSTO EDAM ~1 kg x1\nMARGARIINI 400 g x1\nVEHNÄJAUHO 2 kg x1\n\nPERUNA 2 kg x3\nPORKKANA 1 kg x2\nSIPULI 1 kg x1\nKURKKU x2\nKIRSIKKATOMAAATTI 250 g x2\nJÄÄVUORISALAATTI x1\nPAPRIKA x3\nBANAANI ~2.5 kg\nOMENA 1 kg x2\n\nJAUHELIHA 400 g x4\nBROILERIN FILEESUIKALE 400 g x3\nALASKANSEITI PAKASTE 400 g x2\nTONNIKALA VEDESSÄ x3 prk\nKIDNEYPAVUT x3 prk\nPUNAISET LINSSIT 400 g x2\n\nTOMAATTIMURSKA 400 g x8\nRIISI 1 kg x1\nSPAGETTI 1 kg x1\nLASAGNELEVYT 500 g x1\nRUOKAKERMA 2 dl x4\n\nTORTILLAT 8 kpl x2\nTACOKASTIKE / SALSA x1\nTACOMAUSTE x2\nRANSKANKERMA / CREME FRAICHE x1\n\nPAKASTEWOKVIHANNEKSET 1 kg x1\nHERNE-MAISSI-PAPRIKA PAKASTE 200 g x3", "Vko 3": "MAITO 1 l x10\nKAURAHIUTALE 1 kg x1\nJOGURTTI 1 kg x2\nMUNAT 10 kpl x2\nRUISLEIPÄ x3\nJUUSTO EDAM ~1 kg x1\nMARGARIINI 400 g x1\nVEHNÄJAUHO 2 kg x1\n\nPERUNA 2 kg x3\nPORKKANA 1 kg x2\nSIPULI 1 kg x1\nKURKKU x2\nKIRSIKKATOMAAATTI 250 g x2\nJÄÄVUORISALAATTI x1\nBANAANI ~2 kg\nOMENA 1 kg x2\n\nBROILERIN FILEESUIKALE 400 g x2\nJAUHELIHA 400 g x3\nKALAPUIKOT PAKASTE 1 pkt\nKIDNEYPAVUT x3 prk\nPUNAISET LINSSIT 400 g x2\n\nTOMAATTIMURSKA 400 g x6\nRIISI 1 kg x1\nSPAGETTI 1 kg x1\nMAKARONI 400 g x2\nRUOKAKERMA 2 dl x2\nTORTILLAT 8 kpl x2\nTACOKASTIKE / SALSA x1\nTACOMAUSTE x2\n\nLENKKIMAKKARA 500 g x1\nLIEMIKUUTIOT (kana/liha) 1 pkt\n\nVOITAIKINA 500 g x1\nPAKASTEPINAATTI 1 pkt\nSALAATTIJUUSTO / FETA 200 g x1\n\nPAKASTEJUURESSEKOITUS 1 kg x1\nHERNEET PAKASTE x3"}, "recipes": {"kaurapuuro": {"title": "Kaurapuuro", "servings": "4", "time": "10 min", "ingredients": ["Kaurahiutale 2 dl", "Vesi 8 dl (tai puolet maidolla)", "Ripaus suolaa"], "steps": ["Kiehauta vesi (tai vesi+maito).", "Vispaa hiutaleet ja suola joukkoon.", "Keitä hiljalleen 3–5 min. Lisää päälle banaani/marjat."]}, "tonnikala_pastasalaatti": {"title": "Tonnikala-pastasalaatti", "servings": "4–5", "time": "20 min", "ingredients": ["Pasta 300–400 g", "Tonnikala 2–3 prk", "Kurkku 1", "Tomaatti 2–3", "Paprika 1", "Salaattia", "(Halutessa) ranskankermaa 2–3 rkl tai öljyä 1–2 rkl", "Suola, pippuri"], "steps": ["Keitä pasta, huuhtele ja jäähdytä.", "Pilko kasvikset.", "Sekoita kaikki ja mausta."]}, "uunikana_pelti": {"title": "Uunikana + uunijuurekset + riisi", "servings": "4–6", "time": "60 min", "ingredients": ["Kanan koipireisiä/reisiä 1.2–1.5 kg", "Peruna 1.5–2 kg", "Porkkana 4–6", "Sipuli 2", "Valkosipuli 2 kynttä", "Öljy 2 rkl", "Suola, pippuri, paprika-/yrttimauste", "Riisi"], "steps": ["Uuni 200°C. Paloittele juurekset pellille, lisää öljy+mausteet.", "Nosta kana päälle ja paista 45–60 min.", "Keitä riisi ja tarjoa."]}, "bolognese": {"title": "Spagetti bolognese", "servings": "4–6", "time": "35 min", "ingredients": ["Jauheliha 600–800 g", "Sipuli 1–2", "Valkosipuli 1–2 kynttä", "Tomaattimurska 2–3 prk", "Tomaattipyree 1–2 rkl", "Suola, pippuri, oregano/basilika", "Spagetti"], "steps": ["Ruskista jauheliha ja kuullota sipuli.", "Lisää murska+pyree, mausta ja hauduta 15–20 min.", "Keitä spagetti ja tarjoa."]}, "linssi_kookoscurry": {"title": "Linssi-kookoscurry", "servings": "4–6", "time": "30 min", "ingredients": ["Punaiset linssit 3 dl", "Sipuli 1", "Valkosipuli 1–2", "Tomaattimurska 1–2 prk", "Kookosmaito 1 prk", "Curry tai mieto tacomauste", "Suola", "Riisi"], "steps": ["Kuullota sipulit.", "Lisää linssit+murska+kookosmaito+mausteet, keitä 15–20 min.", "Keitä riisi ja tarjoa."]}, "lohikeitto": {"title": "Lohikeitto", "servings": "4–6", "time": "35 min", "ingredients": ["Peruna 800 g", "Porkkana 2–3", "Purjo 1", "Kalaliemikuutio 1–2", "Lohi 600 g", "Ruokakerma 2 dl", "Tilli", "Sitruuna", "Suola, pippuri"], "steps": ["Keitä peruna+porkkana liemessä lähes pehmeäksi.", "Lisää purjo+lohi, keitä 5–8 min.", "Lisää kerma+tilli, mausta ja viimeistele sitruunalla."]}, "tortillat": {"title": "Tortillat (kana + pavut)", "servings": "4–6", "time": "25 min", "ingredients": ["Broilerisuikale 600–800 g", "Kidneypavut 1–2 prk", "Tacomauste", "Tortillat", "Salaatti/kurkku/tomaatti/paprika", "Salsa", "Ranskankerma"], "steps": ["Paista broileri ja mausta.", "Lisää pavut lämpenemään.", "Täytä tortillat ja tarjoa."]}, "hernekeitto": {"title": "Hernekeitto", "servings": "4", "time": "10 min", "ingredients": ["Hernekeitto purkissa 2 kpl"], "steps": ["Lämmitä kattilassa."]}, "pannukakku": {"title": "Pannukakku", "servings": "4–6", "time": "40 min", "ingredients": ["Maito 8 dl", "Munat 3", "Vehnäjauho 4 dl", "Ripaus suolaa", "Rasva vuokaan"], "steps": ["Uuni 225°C. Sekoita taikina ja anna levätä 10 min.", "Paista 25–35 min."]}, "lihapullat_muusi": {"title": "Lihapullat + perunamuusi", "servings": "4–6", "time": "45 min", "ingredients": ["Jauheliha 600–800 g", "Sipuli 1", "Kananmuna 1", "Korppujauho 1 dl", "Suola, pippuri", "Peruna 1.5 kg", "Maito", "Margariini"], "steps": ["Sekoita pullataikina ja paista pullat.", "Keitä perunat ja tee muusi."]}, "smoothie": {"title": "Smoothie", "servings": "2–4", "time": "5 min", "ingredients": ["Banaani 2", "Jogurtti 4 dl", "(Halutessa) pakastemarjaa", "Tilkka vettä/maitoa"], "steps": ["Sekoita ainekset tehosekoittimessa."]}, "munakas": {"title": "Munakas", "servings": "2–4", "time": "10 min", "ingredients": ["Munat 4–6", "Tilkka maitoa", "Suola, pippuri"], "steps": ["Vatkaa, mausta ja paista pannulla miedolla."]}, "chili": {"title": "Chili con carne (mieto)", "servings": "4–6", "time": "40 min", "ingredients": ["Jauheliha 600–800 g", "Sipuli 1–2", "Tomaattimurska 2 prk", "Kidneypavut 2 prk", "Tacomauste (mieto)", "Riisi"], "steps": ["Ruskista jauheliha+sipuli.", "Lisää murska+mausteet ja hauduta.", "Lisää pavut ja tarjoa riisin kanssa."]}, "uuniseiti_muusi": {"title": "Uuniseiti + perunamuusi", "servings": "4", "time": "45 min", "ingredients": ["Seiti 600–800 g", "Peruna 1.2–1.5 kg", "Maito", "Margariini", "Suola, pippuri, sitruuna"], "steps": ["Paista seiti uunissa 200°C 15–20 min.", "Tee muusi ja tarjoa pakastevihannesten kanssa."]}, "kermainen_broileripasta": {"title": "Kermainen broileripasta", "servings": "4–6", "time": "30 min", "ingredients": ["Broilerisuikale 600–800 g", "Pasta", "Ruokakerma 2 dl", "Suola, pippuri"], "steps": ["Keitä pasta.", "Paista broileri, lisää kerma ja mausta.", "Sekoita pasta kastikkeeseen."]}, "linssi_tomaattikeitto": {"title": "Linssi-tomaattikeitto", "servings": "4–6", "time": "30 min", "ingredients": ["Punaiset linssit 2 dl", "Sipuli 1", "Tomaattimurska 2 prk", "Vettä 6–8 dl", "Suola, pippuri"], "steps": ["Kuullota sipuli.", "Lisää murska+vesi+linssit, keitä 15–20 min.", "Mausta."]}, "kasvislasagne": {"title": "Kasvislasagne", "servings": "6", "time": "70 min", "ingredients": ["Punaiset linssit 3 dl", "Tomaattimurska 3 prk", "Sipuli 1", "Lasagnelevyt", "Juustoraaste", "Suola, pippuri"], "steps": ["Keitä linssit tomaattikastikkeessa 15 min.", "Lado vuokaan kastike+levyt.", "Paista 200°C 35–45 min."]}, "kasvissosekeitto": {"title": "Kasvissosekeitto", "servings": "4–6", "time": "30 min", "ingredients": ["Pakastejuuressekoitus 1 kg", "Liemikuutio", "Vettä ~1.2 l", "(Halutessa) kermaa", "Suola, pippuri"], "steps": ["Keitä juurekset liemessä pehmeiksi.", "Soseuta ja mausta."]}, "kalapuikot_muusi": {"title": "Kalapuikot + muusi + herneet", "servings": "4", "time": "35 min", "ingredients": ["Kalapuikot 1 pkt", "Peruna", "Maito", "Margariini", "Herneet pakaste"], "steps": ["Paista kalapuikot ohjeen mukaan.", "Tee muusi ja keitä herneet."]}, "makkarakeitto": {"title": "Makkarakeitto", "servings": "4–6", "time": "45 min", "ingredients": ["Lenkkimakkara 400–500 g", "Peruna 1 kg", "Porkkana 2", "Sipuli 1", "Liemikuutio", "Vettä ~1.2 l"], "steps": ["Kuutioi. Keitä peruna+porkkana+sipuli liemessä 15 min.", "Lisää makkara ja keitä 5–10 min."]}, "tacokulhot": {"title": "Tacokulhot", "servings": "4–6", "time": "30 min", "ingredients": ["Jauheliha 600 g", "Kidneypavut 1 prk", "Tacomauste", "Riisi", "Salaatti/kurkku/tomaatti", "Salsa", "Ranskankerma"], "steps": ["Keitä riisi.", "Paista jauheliha ja lisää mausteet+pavut.", "Kokoa kulhot."]}, "piirakka": {"title": "Pinaatti-salaattijuustopiirakka", "servings": "6", "time": "60 min", "ingredients": ["Voitaikina 500 g", "Pakastepinaatti 150–200 g", "Feta/salaattijuusto 200 g", "Munat 2", "Maito/kerma 2 dl"], "steps": ["Painele pohja vuokaan.", "Sekoita täyte ja kaada pohjalle.", "Paista 200°C 30–35 min."]}, "makaronilaatikko": {"title": "Makaroonilaatikko", "servings": "6", "time": "70 min", "ingredients": ["Makaroni 400–500 g", "Jauheliha 400–600 g", "Sipuli 1", "Maito 8 dl", "Munat 2", "Suola, pippuri"], "steps": ["Keitä makaroni lähes kypsäksi.", "Ruskista jauheliha+sipuli.", "Sekoita munat+maito.", "Paista 200°C 35–45 min."]}}, "dish_to_recipe": {"Kaurapuuro + banaani": "kaurapuuro", "Kaurapuuro + marjat": "kaurapuuro", "Kaurapuuro + omena": "kaurapuuro", "Tonnikala-pastasalaatti": "tonnikala_pastasalaatti", "Tonnikala-pastasalaatti + ruisleipä": "tonnikala_pastasalaatti", "Uunikana + uunijuurekset + riisi": "uunikana_pelti", "Spagetti bolognese + salaatti": "bolognese", "Linssi-kookoscurry + riisi": "linssi_kookoscurry", "Lohikeitto + ruisleipä": "lohikeitto", "Tortillat (kana + pavut + vihannekset)": "tortillat", "Hernekeitto": "hernekeitto", "Pannukakku + hillo": "pannukakku", "Lihapullat + perunamuusi + kasvikset": "lihapullat_muusi", "Lihapullat + perunamuusi + porkkanaraaste": "lihapullat_muusi", "Smoothie (banaani+jogurtti) + ruisleipä": "smoothie", "Munakas + ruisleipä": "munakas", "Chili con carne + riisi": "chili", "Uuniseiti + perunamuusi + pakastevihannekset": "uuniseiti_muusi", "Kermainen broileripasta": "kermainen_broileripasta", "Linssi-tomaattikeitto + ruisleipä": "linssi_tomaattikeitto", "Kasvislasagne (linssi+tomaatti+juusto)": "kasvislasagne", "Kasvissosekeitto + ruisleipä": "kasvissosekeitto", "Kalapuikot + perunamuusi + herneet": "kalapuikot_muusi", "Makkarakeitto + ruisleipä": "makkarakeitto", "Tacokulhot (jauheliha + pavut + riisi + vihannekset)": "tacokulhot", "Pinaatti-salaattijuustopiirakka + salaatti": "piirakka", "Makaroonilaatikko + porkkanaraaste": "makaronilaatikko"}, "week_plans": {"Vko 1": "Vko 1 – ruokalista\n\nMa:\n- Aamiainen: Kaurapuuro + banaani\n- Lounas: Tonnikala-pastasalaatti + ruisleipä\n- Päivällinen: Uunikana + uunijuurekset + riisi\n- Iltapala: Jogurtti + omena\n\nTi:\n- Aamiainen: Ruisleipä + juusto + kananmuna + kurkku\n- Lounas: Uunikanan tähteet\n- Päivällinen: Spagetti bolognese + salaatti\n- Iltapala: Hedelmä + ruisleipä\n\nKe:\n- Aamiainen: Kaurapuuro + marjat\n- Lounas: Bolognesen tähteet\n- Päivällinen: Linssi-kookoscurry + riisi\n- Iltapala: Jogurtti + banaani\n\nTo:\n- Aamiainen: Jogurtti + kaurahiutale + banaani\n- Lounas: Curryn tähteet\n- Päivällinen: Lohikeitto + ruisleipä\n- Iltapala: Ruisleipä + juusto\n\nPe:\n- Aamiainen: Munakas + ruisleipä\n- Lounas: Lohikeiton tähteet\n- Päivällinen: Tortillat (kana + pavut + vihannekset)\n- Iltapala: Jogurtti / hedelmä\n\nLa:\n- Aamiainen: Pannukakku + hillo\n- Lounas: Tortillatähteet (kulho/wrap)\n- Päivällinen: Hernekeitto\n- Iltapala: Ruisleipä + juusto\n\nSu:\n- Aamiainen: Smoothie (banaani+jogurtti) + ruisleipä\n- Lounas: Hernekeiton tähteet\n- Päivällinen: Lihapullat + perunamuusi + kasvikset\n- Iltapala: Jogurtti + marjat", "Vko 2": "Vko 2 – ruokalista\n\nMa:\n- Aamiainen: Kaurapuuro + banaani\n- Lounas: Tonnikala-pastasalaatti\n- Päivällinen: Chili con carne + riisi\n- Iltapala: Jogurtti + omena\n\nTi:\n- Aamiainen: Ruisleipä + juusto + kananmuna + kurkku\n- Lounas: Chilin tähteet\n- Päivällinen: Uuniseiti + perunamuusi + pakastevihannekset\n- Iltapala: Ruisleipä + hedelmä\n\nKe:\n- Aamiainen: Kaurapuuro + omena\n- Lounas: Seiti+muusi tähteet\n- Päivällinen: Kermainen broileripasta\n- Iltapala: Jogurtti + banaani\n\nTo:\n- Aamiainen: Jogurtti + kaurahiutale + banaani\n- Lounas: Broileripastan tähteet\n- Päivällinen: Linssi-tomaattikeitto + ruisleipä\n- Iltapala: Ruisleipä + hedelmä\n\nPe:\n- Aamiainen: Munakas + ruisleipä\n- Lounas: Linssikeiton tähteet\n- Päivällinen: Tortillat (kana + pavut + vihannekset)\n- Iltapala: Jogurtti / hedelmä\n\nLa:\n- Aamiainen: Pannukakku + hillo\n- Lounas: Tortilla-bowl (tähteet)\n- Päivällinen: Lihapullat + perunamuusi + porkkanaraaste\n- Iltapala: Ruisleipä + juusto\n\nSu:\n- Aamiainen: Smoothie (banaani+jogurtti) + ruisleipä\n- Lounas: Lihapullat/muusi tähteet\n- Päivällinen: Kasvislasagne (linssi+tomaatti+juusto)\n- Iltapala: Jogurtti + marjat", "Vko 3": "Vko 3 – ruokalista\n\nMa:\n- Aamiainen: Kaurapuuro + banaani\n- Lounas: Kasvissosekeitto + ruisleipä\n- Päivällinen: Broileripelti (kana + uunijuurekset)\n- Iltapala: Jogurtti + omena\n\nTi:\n- Aamiainen: Ruisleipä + juusto + kananmuna + kurkku\n- Lounas: Broileripellin tähteet\n- Päivällinen: Kalapuikot + perunamuusi + herneet\n- Iltapala: Ruisleipä + hedelmä\n\nKe:\n- Aamiainen: Jogurtti + kaurahiutale + banaani\n- Lounas: Kalan tähteet\n- Päivällinen: Linssi-bolognese + spagetti\n- Iltapala: Jogurtti + banaani\n\nTo:\n- Aamiainen: Munakas + ruisleipä\n- Lounas: Linssibolognesen tähteet\n- Päivällinen: Makkarakeitto + ruisleipä\n- Iltapala: Ruisleipä + hedelmä\n\nPe:\n- Aamiainen: Kaurapuuro + omena\n- Lounas: Makkarakeiton tähteet\n- Päivällinen: Tacokulhot (jauheliha + pavut + riisi + vihannekset)\n- Iltapala: Jogurtti / hedelmä\n\nLa:\n- Aamiainen: Pannukakku + hillo\n- Lounas: Tacotähteet (kulho/wrap)\n- Päivällinen: Pinaatti-salaattijuustopiirakka + salaatti\n- Iltapala: Ruisleipä + juusto\n\nSu:\n- Aamiainen: Smoothie (banaani+jogurtti) + ruisleipä\n- Lounas: Piirakan tähteet + salaatti\n- Päivällinen: Makaroonilaatikko + porkkanaraaste\n- Iltapala: Jogurtti + hedelmä"}};
+
+const DAYS = ["Ma","Ti","Ke","To","Pe","La","Su"];
+const DAY_NAMES = {"Ma":"Maanantai","Ti":"Tiistai","Ke":"Keskiviikko","To":"Torstai","Pe":"Perjantai","La":"Lauantai","Su":"Sunnuntai"};
+const MEALS = ["Aamiainen","Lounas","Päivällinen","Iltapala"];
+
+const STORAGE_KEY = "ruokalista_data_v1";
+
+let DATA = loadData();
+let state = { week:Object.keys(DATA.weeks)[0] || "Vko 1", view:"meal", day:"Ma", meal:"Aamiainen", tab:"view" };
+
+const $ = (id) => document.getElementById(id);
+
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  setTimeout(()=> t.style.display = "none", 1400);
+}
+
+function escapeHtml(str) {
+  return String(str).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+
+function copyText(text, msg="Kopioitu") {
+  navigator.clipboard.writeText(text).then(()=> toast(msg)).catch(()=> {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    toast(msg);
+  });
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_DATA));
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(DATA));
+}
+
+function rebuildWeekPlans() {
+  DATA.week_plans = {};
+  for (const w of Object.keys(DATA.weeks)) {
+    const lines = [`${w} – ruokalista`];
+    for (const d of DAYS) {
+      const day = DATA.weeks[w][d];
+      lines.push("");
+      lines.push(d + ":");
+      for (const m of MEALS) {
+        lines.push(`- ${m}: ${day[m] || ""}`);
+      }
+    }
+    DATA.week_plans[w] = lines.join("\n");
+  }
+}
+
+function setWeekOptions() {
+  const sel = $("weekSelect");
+  sel.innerHTML = "";
+  Object.keys(DATA.weeks).forEach(w => {
+    const opt = document.createElement("option");
+    opt.value = w; opt.textContent = w;
+    sel.appendChild(opt);
+  });
+  if (!DATA.weeks[state.week]) state.week = Object.keys(DATA.weeks)[0] || "Vko 1";
+  sel.value = state.week;
+  sel.onchange = (e) => {
+    state.week = e.target.value;
+    $("search").value = "";
+    state.day = "Ma";
+    state.meal = "Aamiainen";
+    renderAll();
+  };
+}
+
+function setViewOptions() {
+  const sel = $("viewSelect");
+  sel.value = state.view;
+  sel.onchange = (e) => {
+    state.view = e.target.value;
+    renderAll();
+  };
+}
+
+function setDayMealDropdowns() {
+  const daySel = $("daySelect");
+  daySel.innerHTML = "";
+  DAYS.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d; opt.textContent = `${DAY_NAMES[d]} (${d})`;
+    daySel.appendChild(opt);
+  });
+  daySel.value = state.day;
+  daySel.onchange = (e) => {
+    state.day = e.target.value;
+    state.view = "meal";
+    $("viewSelect").value = "meal";
+    renderAll();
+  };
+
+  const mealSel = $("mealSelect");
+  mealSel.innerHTML = "";
+  MEALS.forEach(m => {
+    const opt = document.createElement("option");
+    opt.value = m; opt.textContent = m;
+    mealSel.appendChild(opt);
+  });
+  mealSel.value = state.meal;
+  mealSel.onchange = (e) => {
+    state.meal = e.target.value;
+    state.view = "meal";
+    $("viewSelect").value = "meal";
+    renderAll();
+  };
+}
+
+function setRecipeDropdowns() {
+  const editRecipe = $("editRecipe");
+  editRecipe.innerHTML = "";
+  const none = document.createElement("option");
+  none.value = ""; none.textContent = "— (ei reseptiä)";
+  editRecipe.appendChild(none);
+
+  Object.keys(DATA.recipes).sort().forEach(id => {
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = `${DATA.recipes[id].title}  [${id}]`;
+    editRecipe.appendChild(opt);
+  });
+}
+
+function getDish() {
+  return (DATA.weeks[state.week][state.day] || {})[state.meal] || "—";
+}
+
+function renderMealView() {
+  $("pillWeek").textContent = state.week;
+  $("pillDay").textContent = DAY_NAMES[state.day] || state.day;
+  $("pillMeal").textContent = state.meal;
+
+  const dish = getDish();
+  $("dishTitle").textContent = dish;
+  $("dishHint").textContent = dish.toLowerCase().includes("tähte") ? "Vinkki: lämmitä ja lisää ruisleipä / hedelmä." : "";
+
+  // sync edit fields
+  $("editDish").value = dish === "—" ? "" : dish;
+  const currentKey = DATA.dish_to_recipe[dish] || "";
+  $("editRecipe").value = currentKey;
+
+  const area = $("contentArea");
+  area.innerHTML = "";
+
+  const recipeKey = DATA.dish_to_recipe[dish] || "";
+  if (!recipeKey) {
+    area.innerHTML = `<div class="section-title">Ohje</div>
+      <div class="muted">Tälle merkinnälle ei ole reseptiä linkitetty. Voit lisätä sen Muokkaa-välilehdeltä.</div>`;
+    return;
+  }
+  const r = DATA.recipes[recipeKey];
+  if (!r) {
+    area.innerHTML = `<div class="muted">Resepti-ID löytyi, mutta resepti puuttuu: <b>${escapeHtml(recipeKey)}</b></div>`;
+    return;
+  }
+  const ing = (r.ingredients||[]).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+  const steps = (r.steps||[]).map(x => `<li>${escapeHtml(x)}</li>`).join("");
+  area.innerHTML = `
+    <div class="section-title">Resepti</div>
+    <div class="muted">
+      <span class="pill">Annokset: ${escapeHtml(r.servings||"")}</span>
+      <span class="pill">Aika: ${escapeHtml(r.time||"")}</span>
+    </div>
+    <div class="section-title">Ainekset</div>
+    <ul>${ing}</ul>
+    <div class="section-title">Vaiheet</div>
+    <ol>${steps}</ol>
+  `;
+}
+
+function renderWeekPlanView() {
+  $("pillWeek").textContent = state.week;
+  $("pillDay").textContent = "—";
+  $("pillMeal").textContent = "Ruokalista";
+  $("dishTitle").textContent = `${state.week} – vahvistettu ruokalista`;
+  $("dishHint").textContent = "Koko viikon lista yhdessä näkymässä.";
+  $("contentArea").innerHTML = `
+    <div class="section-title">Ruokalista</div>
+    <pre>${escapeHtml(DATA.week_plans[state.week] || "")}</pre>
+  `;
+}
+
+function renderShoppingView() {
+  $("pillWeek").textContent = state.week;
+  $("pillDay").textContent = "—";
+  $("pillMeal").textContent = "Ostoslista";
+  $("dishTitle").textContent = `${state.week} – ostoslista`;
+  $("dishHint").textContent = "Kopioi lista ja liitä K-Ruokaan.";
+  $("contentArea").innerHTML = `
+    <div class="section-title">Ostoslista</div>
+    <pre>${escapeHtml(DATA.shopping[state.week] || "")}</pre>
+  `;
+  $("editShopping").value = DATA.shopping[state.week] || "";
+}
+
+function renderAll() {
+  rebuildWeekPlans();
+  saveData();
+  setWeekOptions();
+  setViewOptions();
+  setDayMealDropdowns();
+  setRecipeDropdowns();
+
+  $("weekSelect").value = state.week;
+  $("viewSelect").value = state.view;
+  $("daySelect").value = state.day;
+  $("mealSelect").value = state.meal;
+
+  if (state.view === "shopping") return renderShoppingView();
+  if (state.view === "weekplan") return renderWeekPlanView();
+  return renderMealView();
+}
+
+function switchTab(tab) {
+  state.tab = tab;
+  $("tabView").classList.toggle("active", tab==="view");
+  $("tabEdit").classList.toggle("active", tab==="edit");
+  $("tabData").classList.toggle("active", tab==="data");
+  $("panelView").style.display = tab==="view" ? "" : "none";
+  $("panelEdit").style.display = tab==="edit" ? "" : "none";
+  $("panelData").style.display = tab==="data" ? "" : "none";
+}
+
+function setupTabs() {
+  $("tabView").onclick = () => switchTab("view");
+  $("tabEdit").onclick = () => switchTab("edit");
+  $("tabData").onclick = () => switchTab("data");
+}
+
+function setupActions() {
+  $("copyMealBtn").onclick = () => {
+    const dish = getDish();
+    copyText(`${state.week} ${DAY_NAMES[state.day]} – ${state.meal}: ${dish}`, "Ateria kopioitu");
+  };
+
+  $("copyRecipeBtn").onclick = () => {
+    const dish = getDish();
+    const key = DATA.dish_to_recipe[dish] || "";
+    if (!key || !DATA.recipes[key]) {
+      copyText(dish, "Ei reseptiä – kopioitu ruoka");
+      return;
+    }
+    const r = DATA.recipes[key];
+    const body = [
+      r.title,
+      `Annokset: ${r.servings||""} | Aika: ${r.time||""}`,
+      "",
+      "Ainekset:",
+      ...(r.ingredients||[]).map(x => `- ${x}`),
+      "",
+      "Vaiheet:",
+      ...(r.steps||[]).map((x,i)=> `${i+1}. ${x}`)
+    ].join("\n");
+    copyText(body, "Resepti kopioitu");
+  };
+
+  $("copyWeekPlanBtn").onclick = () => copyText(DATA.week_plans[state.week] || "", "Viikon ruokalista kopioitu");
+  $("copyShoppingBtnTop").onclick = () => copyText(DATA.shopping[state.week] || "", "Ostoslista kopioitu");
+
+  $("search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) return;
+    for (const d of DAYS) {
+      for (const m of MEALS) {
+        const dish = (DATA.weeks[state.week][d] || {})[m] || "";
+        if (dish.toLowerCase().includes(q)) {
+          state.day = d; state.meal = m; state.view = "meal";
+          $("viewSelect").value = "meal";
+          renderAll();
+          return;
+        }
+      }
+    }
+  });
+
+  // Edit meal
+  $("saveMealBtn").onclick = () => {
+    const dishOld = getDish();
+    const dishNew = $("editDish").value.trim();
+    if (!dishNew) return toast("Anna ruoan nimi");
+    DATA.weeks[state.week][state.day][state.meal] = dishNew;
+
+    const recipeId = $("editRecipe").value;
+    if (recipeId) DATA.dish_to_recipe[dishNew] = recipeId;
+    else delete DATA.dish_to_recipe[dishNew];
+
+    // If old dish differs, keep old mapping (user might reuse), but remove if desired? We'll keep.
+    toast("Tallennettu");
+    renderAll();
+  };
+
+  $("clearRecipeBtn").onclick = () => {
+    const dish = $("editDish").value.trim() || getDish();
+    delete DATA.dish_to_recipe[dish];
+    toast("Reseptilinkki poistettu");
+    renderAll();
+  };
+
+  // Add / delete week
+  $("addWeekBtn").onclick = () => {
+    const name = $("newWeekName").value.trim();
+    if (!name) return toast("Anna viikon nimi");
+    if (DATA.weeks[name]) return toast("Viikko on jo olemassa");
+    DATA.weeks[name] = {};
+    for (const d of DAYS) {
+      DATA.weeks[name][d] = {};
+      for (const m of MEALS) DATA.weeks[name][d][m] = "";
+    }
+    state.week = name;
+    $("newWeekName").value = "";
+    toast("Viikko lisätty");
+    renderAll();
+  };
+
+  $("deleteWeekBtn").onclick = () => {
+    const keys = Object.keys(DATA.weeks);
+    if (keys.length <= 1) return toast("Et voi poistaa viimeistä viikkoa");
+    if (!confirm(`Poistetaanko ${state.week}?`)) return;
+    delete DATA.weeks[state.week];
+    state.week = Object.keys(DATA.weeks)[0];
+    toast("Viikko poistettu");
+    renderAll();
+  };
+
+  // Save shopping
+  $("saveShoppingBtn").onclick = () => {
+    DATA.shopping[state.week] = $("editShopping").value;
+    toast("Ostoslista tallennettu");
+    renderAll();
+  };
+
+  // Add recipe
+  $("saveRecipeBtn").onclick = () => {
+    const id = $("newRecipeId").value.trim();
+    const title = $("newRecipeTitle").value.trim();
+    if (!id || !title) return toast("Täytä id ja otsikko");
+    const servings = $("newRecipeServings").value.trim();
+    const time = $("newRecipeTime").value.trim();
+    const ingredients = $("newRecipeIngredients").value.split("\n").map(x=>x.trim()).filter(Boolean);
+    const steps = $("newRecipeSteps").value.split("\n").map(x=>x.trim()).filter(Boolean);
+    DATA.recipes[id] = { title, servings, time, ingredients, steps };
+    $("newRecipeId").value = ""; $("newRecipeTitle").value = ""; $("newRecipeServings").value = ""; $("newRecipeTime").value = "";
+    $("newRecipeIngredients").value = ""; $("newRecipeSteps").value = "";
+    toast("Resepti tallennettu");
+    renderAll();
+  };
+
+  // Data import/export/reset
+  $("exportBtn").onclick = () => {
+    $("dataArea").value = JSON.stringify(DATA, null, 2);
+    toast("JSON valmis – kopioi");
+  };
+
+  $("importBtn").onclick = () => {
+    try {
+      const obj = JSON.parse($("dataArea").value);
+      // Light validation
+      if (!obj.weeks || !obj.recipes || !obj.shopping) throw new Error("Puuttuvia kenttiä");
+      DATA = obj;
+      // Ensure week_plans exists
+      if (!DATA.week_plans) DATA.week_plans = {};
+      toast("JSON tuotu");
+      renderAll();
+    } catch (e) {
+      alert("JSON ei kelpaa: " + e.message);
+    }
+  };
+
+  $("resetBtn").onclick = () => {
+    if (!confirm("Palautetaanko oletukset? Tämä yliajaa omat muutokset.")) return;
+    DATA = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    toast("Palautettu");
+    renderAll();
+  };
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js").catch(()=>{}));
+}
+
+function init() {
+  setupTabs();
+  setupActions();
+  rebuildWeekPlans();
+  saveData();
+  renderAll();
+}
+
+init();
+</script>
+</body>
+</html>
